@@ -1,0 +1,66 @@
+import base64
+import requests
+import json
+
+
+ENCODING = "utf-8"
+
+
+def _post_(url, data):
+    try:
+        print("start post %s................................." % data["device_name"])
+        res = requests.post(url, json.dumps(data))
+        if res.status_code != requests.codes.ok:
+            print(res)
+            return {}
+        return res.json()
+    except ValueError as ve:
+        print(ve)
+        return {}
+
+
+def pack_property(identifier, value):
+    return {"device_name": identifier, "value": value}
+
+
+def pack_picture(identifier, pic):
+    return {"device_name": identifier, "picture": pic}
+
+
+class Request:
+    ali_server_base: str
+    object_detect_base: str
+    car_licence_detect_base: str
+
+    def __init__(self, config):
+        self.ali_server_base = config["server"]["ali"]["url"]
+        self.object_detect_base = config["server"]["object_detect"]["url"]
+        self.car_licence_detect_base = config["server"]["car_licence"]["url"]
+
+    def post_object_detect(self):
+        res = requests.post("%s/detect" % self.object_detect_base)
+        try:
+            data = res.json()
+            return data
+        except ValueError as ve:
+            print(ve)
+            return {}
+
+    def post_flush(self):
+        return _post_("%s/flush" % self.ali_server_base, {})
+
+    def post_picture(self, identifier, img_path):
+        try:
+            with open(img_path, 'rb') as f:
+                data = base64.b64encode(f.read())
+                data_str = data.decode(ENCODING)
+            return _post_("%s/picture" % self.ali_server_base, pack_picture(identifier, data_str))
+        except FileNotFoundError as fnfe:
+            print(fnfe)
+            return {"success": "False"}
+
+    def post_property(self, identifier, value):
+        return _post_("%s/property" % self.ali_server_base, pack_property(identifier, value))
+
+    def post_licence_plate(self, licence):
+        return _post_("%s/plate_number" % self.ali_server_base, {"PlateNumber": licence})
